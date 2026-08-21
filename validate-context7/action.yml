@@ -1,0 +1,36 @@
+name: Validate context7.json
+description: >-
+  Fail the build when a context7.json would be rejected by Context7's schema.
+  Context7 drops an invalid config silently, so the repository never learns.
+author: MarketData.app
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  path:
+    description: Path to the context7.json to validate, relative to the workspace.
+    required: false
+    default: context7.json
+  fail-if-missing:
+    description: >-
+      Fail when the file does not exist. Off by default so the action is safe to
+      add to a repository before it adopts a context7.json.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Validate ${{ inputs.path }}
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        FAIL_IF_MISSING: ${{ inputs.fail-if-missing }}
+      run: |
+        args=("$INPUT_PATH")
+        if [ "$FAIL_IF_MISSING" = "true" ]; then
+          args+=(--fail-if-missing)
+        fi
+        python3 "${GITHUB_ACTION_PATH}/validate-context7.py" "${args[@]}"

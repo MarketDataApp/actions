@@ -1,0 +1,6 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Example",
+  "description": "A minimal valid configuration used to test the validator.",
+  "rules": ["Keep rules under 255 characters."]
+}

@@ -1,0 +1,74 @@
+name: Test
+
+# Actions are consumed by other repositories at a moving @v1 tag, so a regression here
+# breaks builds elsewhere with no warning. Every push exercises the action against
+# fixtures rather than only linting it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-context7:
+    name: validate-context7 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Consumers run on all three, and the action shells out, so prove it there.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The happy path, exercised through the action itself rather than the script.
+      - name: Accepts a valid config
+        uses: ./validate-context7
+        with:
+          path: validate-context7/test/fixtures/valid.json
+
+      # A repository that has not adopted a config must not fail.
+      - name: Passes when the file is absent
+        uses: ./validate-context7
+        with:
+          path: does-not-exist.json
+
+      # The failure paths cannot use `uses:` — a failing step fails the job — so they
+      # invoke the script directly and assert on the exit code.
+      - name: Rejects an invalid config
+        shell: bash
+        run: |
+          if python3 validate-context7/validate-context7.py \
+               validate-context7/test/fixtures/invalid.json; then
+            echo "::error::validator accepted an invalid config"
+            exit 1
+          fi
+          echo "Rejected as expected."
+
+      - name: Reports malformed JSON distinctly
+        shell: bash
+        run: |
+          set +e
+          python3 validate-context7/validate-context7.py \
+            validate-context7/test/fixtures/malformed.json
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "::error::expected exit 2 for malformed JSON, got ${code}"
+            exit 1
+          fi
+          echo "Exited 2 as expected."
+
+      - name: Honours --fail-if-missing
+        shell: bash
+        run: |
+          if python3 validate-context7/validate-context7.py absent.json --fail-if-missing; then
+            echo "::error::--fail-if-missing did not fail"
+            exit 1
+          fi
+          echo "Failed as expected."
